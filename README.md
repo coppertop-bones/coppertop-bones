@@ -1,4 +1,4 @@
-## coppertop-bones - partial functions, multi-dispatch and pipeline style for Python
+## coppertop-bones - partial functions, multiple-dispatch and pipeline style for Python
 
 Coppertop provides a bones-style aggregation manipulation experience in Python via the following:
 
@@ -92,7 +92,7 @@ def addOne(x):
 
 <br>
 
-#### binary style - takes 2 piped argument and 0+ called arguments
+#### binary style - takes 2 piped arguments and 0+ called arguments
 
 syntax: `A >> f(args) >> B` -> `f(args)(A, B)`
 
@@ -120,7 +120,7 @@ def op(x, action, y):
 
 <br>
 
-#### ternary style - takes 3 piped argument and 0+ called arguments
+#### ternary style - takes 3 piped arguments and 0+ called arguments
 
 syntax: `A >> f(args) >> B >> C` -> `f(args)(A, B, C)`
 
