@@ -28,27 +28,47 @@
 # **********************************************************************************************************************
 
 
-import builtins, sys
+import builtins, sys, types
 from bones import jones
 
 
 # rejected ideas:
-# 1) from coppertop import dm - creates dm if it doesn't exist  - can't distinguish between new module and misspelt thing
+# 1) from broot import dm - creates dm if it doesn't exist  - can't distinguish between new module and misspelt thing
 # 2) `import dm` or `from fred import dm` always return bones module if it is defined - messing with python imports
 
 
 if '_oldImportFnForCoppertop' not in sys.__dict__:
-    sys._bmodules = {}
+
+    class BModule(types.ModuleType):
+        def __repr__(self):
+            return f'BModule({self.__name__})'
+
+        def __getattribute__(self, name):
+            try:
+                answer = super().__getattribute__(name)
+            except AttributeError as ex:
+                raise AttributeError(
+                    f"bones module '{self.__name__}' has no attribute '{name}' - maybe it's defined in a python module "
+                    f"that needs to be imported"
+                ) from None
+            return answer
+
+
+    sys._bmodules = {'': BModule('')}
     sys._oldImportFnForCoppertop = builtins.__import__
 
     def _newImport(name, globals=None, locals=None, fromlist=(), level=0):
         splits = name.split('.', maxsplit=1)
-        if splits[0] == 'coppertop':
-            if name in ('coppertop._scopes', 'coppertop.pipe'):
-                return sys._oldImportFnForCoppertop(name, globals, locals, fromlist, level)
+        # if splits[0] == 'coppertop':
+        #     if name in ('coppertop._scopes', 'coppertop.pipe'):
+        #         return sys._oldImportFnForCoppertop(name, globals, locals, fromlist, level)
+        if splits[0] == 'broot':
+            if len(splits) > 1:
+                raise ImportError("broot is a virtual package with no importable submodules - usage is either 'import broot' or 'from broot.x.y import z'")
             if not fromlist:
-                raise ImportError('coppertop has modified builtins.__import__ to handle bones style modules - correct usage is from coppertop.x.y.z import a, b, c')
-            bmodname = splits[1] if len(splits) == 2 else ''   # no splits means we're importing from the root namespace, i.e. from coppertop import a, b, c
+                # i.e. import broot
+                return sys._bmodules['']
+            bmodname = splits[1] if len(splits) == 2 else ''   # no splits means we're importing from the root namespace, i.e. from broot import a, b, c
             if (mod := sys._bmodules.get(bmodname, None)):
                 for nameToImport in fromlist:
                     all = []
@@ -73,28 +93,3 @@ if '_oldImportFnForCoppertop' not in sys.__dict__:
         return mod
 
     builtins.__import__ = _newImport
-
-
-
-
-if __name__ == "__main__":
-    import dm.pp
-    from coppertop import *
-    dm >> TT >> DD
-    from coppertop import dm
-    dm >> TT >> DD
-    from coppertop.pipe import *
-    coppertop >> TT >> DD
-
-    '2' >> PP
-    import dm.pp
-    dm >> TT >> DD
-    dm.pp >> TT >> DD
-
-    '3' >> PP
-    from coppertop import dm
-    dm >> TT >> DD
-    from dm.pp import Missing
-    dm >> TT >> DD
-    dm.pp >> TT >> DD
-

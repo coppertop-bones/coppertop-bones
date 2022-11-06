@@ -44,6 +44,7 @@ from bones import jones
 # note: bones modules live in sys._bmodules which is created by coppertop/__init__.py
 
 from bones.core.context import context
+from coppertop import BModule
 from coppertop._scopes import _CoWProxy, _UNDERSCORE, _ContextualScopeManager, _MutableContextualScope
 from bones.core.errors import ProgrammerError, NotYetImplemented, ErrSite, CPTBError
 from bones.core.sentinels import Missing
@@ -107,18 +108,6 @@ ANON_NAME = '<lambda>'
 
 _SCTracker = []
 
-class BModule(types.ModuleType):
-    def __repr__(self):
-        return f'BModule({self.__name__})'
-    def __getattribute__(self, name):
-        try:
-            answer = super().__getattribute__(name)
-        except AttributeError as ex:
-            raise AttributeError(
-                f"bones module '{self.__name__}' has no attribute '{name}' - maybe it's defined in a python module "
-                f"that needs to be imported"
-            ) from None
-        return answer
 
 jonesFnByStyle = {
     nullary: jones._nullary,
