@@ -608,6 +608,50 @@ static PyObject * Partial_o_tbc(Partial *partial, void* closure) {
 
 
 
+// __array_ufunc__ to work nicely with numpy
+
+// https://numpy.org/doc/stable/reference/c-api/ufunc.html#c.PyUFunc_RegisterLoopForType
+// https://numpy.org/devdocs/reference/c-api/ufunc.html#c.PyUFunc_ReplaceLoopBySignature
+// https://numpy.org/doc/stable/user/c-info.beyond-basics.html
+// multi methods in numpy https://technicaldiscovery.blogspot.com/2013/07/thoughts-after-scipy-2013-and-specific.html
+// https://numpy.org/doc/1.14/neps/ufunc-overrides.html
+// https://numpy.org/doc/1.14/reference/generated/numpy.right_shift.html#numpy.right_shift
+// https://stackoverflow.com/questions/55386602/how-to-overide-numpy-ufunc-with-array-ufunc
+//
+// the last one provides a way to co-exist with numpy - there may be more performant ones (and we can revisit later)
+// and this issue may arise with other ndarray implementations (or other libraries that want to use >>), but we'll
+// cross that bridge when we come to it
+//
+//    def __array_ufunc__(self, *args, **kwargs):
+//        f"{self.name}.__array_ufunc__   args: {args}\n" >> PP
+//        if kwargs: print(kwargs)
+//        return 5
+//
+// np.array(5) >> fn
+// fred.__array_ufunc__   args: (<ufunc 'right_shift'>, '__call__', array(5), fred)
+
+static PyObject * _Common__array_ufunc__(Fn *fn, PyObject *args, PyObject *kwds) {
+//static PyObject * _Common__array_ufunc__(Fn *fn, PyObject *const *args, Py_ssize_t num_args) {
+    Py_ssize_t num_args = PyTuple_GET_SIZE(args);
+    if (kwds != NULL && PyDict_Size(kwds) > 0) return PyErr_Format(PyExc_TypeError, "fn %s.%s.__array_ufunc__ does not take keyword arguments", PyUnicode_DATA(fn->bmod), PyUnicode_DATA(fn->name));
+    if (num_args != 4) return PyErr_Format(PyExc_SyntaxError, "Wrong number of args to fn %s.%s.__array_ufunc__ - %l expected, %l given", PyUnicode_DATA(fn->bmod), PyUnicode_DATA(fn->name), 4, num_args);
+    // MORE ERROR DETECTION?
+    PyObject *lhs = PyTuple_GET_ITEM(args, 2);
+    Py_INCREF(lhs);
+    PyObject *rhs = PyTuple_GET_ITEM(args, 3);
+    Py_INCREF(lhs);
+    PyTypeObject *cls = Py_TYPE(rhs);
+    if (cls == &UnaryCls) return _unary_nb_rshift(lhs, rhs);
+    if (cls == &BinaryCls) return _binary_nb_rshift(lhs, rhs);
+    if (cls == &TernaryCls) return _ternary_nb_rshift(lhs, rhs);
+    if (cls == &PUnaryCls) return _punary_nb_rshift(lhs, rhs);
+    if (cls == &PBinaryCls) return _pbinary_nb_rshift(lhs, rhs);
+    if (cls == &PTernaryCls) return _pternary_nb_rshift(lhs, rhs);
+    Py_RETURN_NOTIMPLEMENTED;
+}
+
+
+
 // Fn lifecycle
 
 static void Fn_dealloc(Fn *self) {
@@ -692,7 +736,7 @@ static int Partial_initFromFn(
 // members, get/setter, methods
 
 static PyObject * Fn_get_doc(Fn *self, void *closure) {
-    return PyUnicode_FromString("hello");
+    return PyUnicode_FromString("Fn...");
 }
 
 static PyObject * Fn_get_d(Fn *self, void *closure) {
@@ -722,6 +766,11 @@ static PyMemberDef Fn_members[] = {
     {NULL}
 };
 
+static PyMethodDef Fn_methods[] = {
+    {"__array_ufunc__", (PyCFunction) _Common__array_ufunc__, METH_VARARGS | METH_KEYWORDS, "__array_ufunc__"},
+    {NULL}
+};
+
 static PyGetSetDef Partial_getsetters[] = {
     {"o_tbc", (getter) Partial_o_tbc, NULL, "offsets of missing arguments", NULL},
     {NULL}
@@ -735,6 +784,11 @@ static PyMemberDef Partial_members[] = {
     {"num_args", T_UBYTE, offsetof(PyVarObject, ob_size), READONLY, "total number of arguments"},
     {"pipe1", T_OBJECT, offsetof(Partial, pipe1), READONLY, "first piped arg"},
     {"pipe2", T_OBJECT, offsetof(Partial, pipe2), READONLY, "second piped arg"},
+    {NULL}
+};
+
+static PyMethodDef Partial_methods[] = {
+    {"__array_ufunc__", (PyCFunction) _Common__array_ufunc__, METH_VARARGS | METH_KEYWORDS, "__array_ufunc__"},
     {NULL}
 };
 
@@ -779,6 +833,7 @@ static PyTypeObject NullaryCls = {
     .tp_init = (initproc) Fn_init,
     .tp_dealloc = (destructor) Fn_dealloc,
     .tp_members = Fn_members,
+    .tp_methods = Fn_methods,
     .tp_getset = Fn_getsetters,
     .tp_call = (ternaryfunc) _Fn__call__,
     .tp_as_number = (PyNumberMethods*) &_nullary_tp_as_number,
@@ -793,6 +848,7 @@ static PyTypeObject PNullaryCls = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor) Partial_dealloc,
     .tp_members = Partial_members,
+    .tp_methods = Partial_methods,
     .tp_getset = Partial_getsetters,
     .tp_call = (ternaryfunc) _Partial__call__,
     .tp_as_number = (PyNumberMethods*) &_pnullary_tp_as_number,
@@ -811,6 +867,7 @@ static PyTypeObject UnaryCls = {
     .tp_init = (initproc) Fn_init,
     .tp_dealloc = (destructor) Fn_dealloc,
     .tp_members = Fn_members,
+    .tp_methods = Fn_methods,
     .tp_getset = Fn_getsetters,
     .tp_call = (ternaryfunc) _Fn__call__,
     .tp_as_number = (PyNumberMethods*) &_unary_tp_as_number,
@@ -825,6 +882,7 @@ static PyTypeObject PUnaryCls = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor) Partial_dealloc,
     .tp_members = Partial_members,
+    .tp_methods = Partial_methods,
     .tp_getset = Partial_getsetters,
     .tp_call = (ternaryfunc) _Partial__call__,
     .tp_as_number = (PyNumberMethods*) &_punary_tp_as_number,
@@ -843,6 +901,7 @@ static PyTypeObject BinaryCls = {
     .tp_init = (initproc) Fn_init,
     .tp_dealloc = (destructor) Fn_dealloc,
     .tp_members = Fn_members,
+    .tp_methods = Fn_methods,
     .tp_getset = Fn_getsetters,
     .tp_call = (ternaryfunc) _Fn__call__,
     .tp_as_number = (PyNumberMethods*) &_binary_tp_as_number,
@@ -857,6 +916,7 @@ static PyTypeObject PBinaryCls = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor) Partial_dealloc,
     .tp_members = Partial_members,
+    .tp_methods = Partial_methods,
     .tp_getset = Partial_getsetters,
     .tp_call = (ternaryfunc) _Partial__call__,
     .tp_as_number = (PyNumberMethods*) &_pbinary_tp_as_number,
@@ -875,6 +935,7 @@ static PyTypeObject TernaryCls = {
     .tp_init = (initproc) Fn_init,
     .tp_dealloc = (destructor) Fn_dealloc,
     .tp_members = Fn_members,
+    .tp_methods = Fn_methods,
     .tp_getset = Fn_getsetters,
     .tp_call = (ternaryfunc) _Fn__call__,
     .tp_as_number = (PyNumberMethods*) &_ternary_tp_as_number,
@@ -889,6 +950,7 @@ static PyTypeObject PTernaryCls = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor) Partial_dealloc,
     .tp_members = Partial_members,
+    .tp_methods = Partial_methods,
     .tp_getset = Partial_getsetters,
     .tp_call = (ternaryfunc) _Partial__call__,
     .tp_as_number = (PyNumberMethods*) &_pternary_tp_as_number,
@@ -907,6 +969,7 @@ static PyTypeObject RauCls = {
     .tp_init = (initproc) Fn_init,
     .tp_dealloc = (destructor) Fn_dealloc,
     .tp_members = Fn_members,
+    .tp_methods = Fn_methods,
     .tp_getset = Fn_getsetters,
     .tp_call = (ternaryfunc) _Fn__call__,
     .tp_as_number = (PyNumberMethods*) &_rau_tp_as_number,
@@ -921,6 +984,7 @@ static PyTypeObject PRauCls = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor) Partial_dealloc,
     .tp_members = Partial_members,
+    .tp_methods = Partial_methods,
     .tp_getset = Partial_getsetters,
     .tp_call = (ternaryfunc) _Partial__call__,
     .tp_as_number = (PyNumberMethods*) &_prau_tp_as_number,
