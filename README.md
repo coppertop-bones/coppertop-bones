@@ -99,7 +99,7 @@ syntax: `A >> f(args) >> B` -> `f(args)(A, B)`
 ```
 from bones.core.errors import NotYetImplemented
 import dm.core
-from coppertop import collect, inject
+from broot import collect, inject
 
 @coppertop(style=binary)
 def add(x, y):
@@ -125,7 +125,7 @@ def op(x, action, y):
 syntax: `A >> f(args) >> B >> C` -> `f(args)(A, B, C)`
 
 ```
-from coppertop import both, check, equal
+from broot import both, check, equal
 
 actual = [1,2] >> both >> (lambda x, y: x + y) >> [3,4]
 assert (1 >> equal >> 1) == True
@@ -136,7 +136,7 @@ actual >> check >> equal >> [4, 6]
 
 #### as an exercise for the reader
 ```
-from coppertop import to
+from broot import to
 [1,2] >> both >> (lambda x, y: x + y) >> [3,4] 
    >> collect >> (lambda x: x * 2)
    >> inject(_,1,_) >> (lambda x,y: x * y)
