@@ -391,7 +391,7 @@ def create2DTvArray(*args_, **kwargs):
 
 # could make +, -, / and * be type aware by having index, offset, count, etc being familial as well as orthogonal
 
-weaken(litint, (index, num, offset, count))
+weaken(litint, (offset, num, count, index))
 weaken(litdec, (num,))
 weaken(type(None), (null, void))
 weaken(littxt, (txt,))

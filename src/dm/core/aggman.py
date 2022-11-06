@@ -112,7 +112,7 @@ def at(xs:pylist+pytuple, os:pylist):
     return answer
 
 @coppertop(style=binary)
-def at(xs:pylist, s1:index, s2: index):
+def at(xs:pylist, s1:offset, s2: offset):
     return xs[s1:s2]
 
 @coppertop(style=binary)
@@ -184,7 +184,11 @@ def atAllPut(xs:pydict, ks:pylist+pytuple, vs:pylist+pytuple) -> pydict:
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atCol(a: matrix & tvarray, i: index) -> matrix & tvarray:
+def atCol(a: matrix & tvarray, o:offset) -> matrix & tvarray:
+    return a[:, [o]]
+
+@coppertop(style=binary)
+def atCol(a: matrix & tvarray, i:index) -> matrix & tvarray:
     return a[:, [i - 1]]
 
 
@@ -272,7 +276,7 @@ def atPut(xs:pylist, iOrIs, yOrYs) -> pylist:
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atRemain(m, i):
+def atRemain(m, o:offset):
     raise NotYetImplemented()
 
 
@@ -281,7 +285,7 @@ def atRemain(m, i):
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atRow(m, i):
+def atRow(m, o:offset):
     raise NotYetImplemented()
 
 
@@ -290,7 +294,7 @@ def atRow(m, i):
 # **********************************************************************************************************************
 
 @coppertop(style=ternary)
-def atRowPut(m, i, row):
+def atRowPut(m, o:offset, row):
     raise NotYetImplemented()
 
 
@@ -302,7 +306,7 @@ def atRowPut(m, i, row):
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atSlice(m, i):
+def atSlice(m, s):
     raise NotYetImplemented()
 
 
@@ -311,7 +315,7 @@ def atSlice(m, i):
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atSlicePut(m, i):
+def atSlicePut(m, s, y):
     raise NotYetImplemented()
 
 
@@ -320,7 +324,7 @@ def atSlicePut(m, i):
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atSlices(m, i):
+def atSlices(m, ss):
     raise NotYetImplemented()
 
 
@@ -329,7 +333,7 @@ def atSlices(m, i):
 # **********************************************************************************************************************
 
 @coppertop(style=binary)
-def atSlicesPut(m, i):
+def atSlicesPut(m, ss, y):
     raise NotYetImplemented()
 
 
@@ -540,11 +544,11 @@ def drop(xs:pylist, n:t.count) -> pylist:    #(N**T(im), count)-> N**T(im)
     return xs[n:]
 
 @coppertop(style=binary)
-def drop(xs:txt, n:index) -> txt:     #(N**T(txt), count)-> N**T(txt)
+def drop(xs:txt, n:t.count) -> txt:     #(N**T(txt), count)-> N**T(txt)
     if n > 0:
         return xs[n:]
     else:
-        raise NotYetImplemented('drop(xs:txt, n:index) -> txt')
+        raise NotYetImplemented('drop(xs:txt, n:count) -> txt')
 
 @coppertop(style=binary)
 def drop(xs:pylist, ss:pytuple) -> pylist:
