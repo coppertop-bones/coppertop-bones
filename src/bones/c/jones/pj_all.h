@@ -33,7 +33,6 @@
 
 #include "pj_BType.h"
 #include "pj_select.h"
-#include "pj_hack_numpy.h"
 #include "pj_mem.h"
 #include "pj_pipe_op.h"
 #include "pj_play.h"

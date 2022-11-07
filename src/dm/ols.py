@@ -33,7 +33,7 @@ import numpy as np, scipy.stats
 
 from coppertop.pipe import *
 from bones.lang.structs import tvarray
-from dm.core.types import N, num, matrix, pytuple
+from dm.core.types import N, num, matrix, pytuple, pydict
 from dm.core.aggman import takeRowRemain, hjoin, numRows
 from bones.lang.structs import bstruct
 
@@ -100,13 +100,14 @@ matrix_ = matrix&tvarray
 
 @coppertop(style=nullary, module='dm.stats')
 def ols(Y:matrix&tvarray, X:matrix&tvarray) -> OLSResult:
-    return _ols(Y, X)
+    return _ols(Y, X, {})
 
 @coppertop(style=nullary, module='dm.stats')
-def ols(Y: matrix & tvarray, X: matrix & tvarray, addIntercept) -> OLSResult:
-    return _ols(Y, X, addIntercept)
+def ols(Y: matrix & tvarray, X: matrix & tvarray, options:pydict) -> OLSResult:
+    return _ols(Y, X, options)
 
-def _ols(Y:matrix&tvarray, X:matrix&tvarray, addIntercept=False) -> OLSResult:
+def _ols(Y:matrix&tvarray, X:matrix&tvarray, options) -> OLSResult:
+    addIntercept = options.get('addIntercept', False)
     X = np.append(np.ones((X.shape[0], 1)), X, axis=1) if addIntercept else X
     N, K = X.shape  # N is number of observations, K is number of betaHats, plus one for the intercept, YBar, if required
     resDoF = N - K
@@ -182,20 +183,21 @@ def residuals(res:OLSResult, Y:matrix&tvarray, X:matrix&tvarray) -> array_:
 
 @coppertop(module='dm.stats')
 def predictedR2(Y: matrix & tvarray, X: matrix & tvarray) -> pytuple:
-    return _predictedR2(Y, X)
+    return _predictedR2(Y, X, {})
 
 @coppertop(module='dm.stats')
-def predictedR2(Y: matrix & tvarray, X: matrix & tvarray, addIntercept) -> pytuple:
-    return _predictedR2(Y, X, addIntercept)
+def predictedR2(Y: matrix & tvarray, X: matrix & tvarray, options) -> pytuple:
+    return _predictedR2(Y, X, options)
 
-def _predictedR2(Y: matrix & tvarray, X: matrix & tvarray, addIntercept=False) -> pytuple:
+def _predictedR2(Y: matrix & tvarray, X: matrix & tvarray, options) -> pytuple:
+    addIntercept = options.get('addIntercept', False)
     betaHats = []
     errors = []
     r2 = []
     for i in range(Y >> numRows):
         y, Y_ = Y >> takeRowRemain >> i
         x, X_ = X >> takeRowRemain >> i
-        lm = ols(Y_, X_, addIntercept)
+        lm = ols(Y_, X_, options)
         x = ((tvarray&matrix)(np.ones((1, 1))) >> hjoin >> x) if addIntercept else x
         betaHats.append(lm.betaHat)
         yHat = (x @ lm.betaHat)[0]
@@ -203,7 +205,8 @@ def _predictedR2(Y: matrix & tvarray, X: matrix & tvarray, addIntercept=False) -
         r2.append(_r2(lm))
     errors = np.array(errors)
     predictedSSres = sum(errors * errors)[0]
-    lm = ols(Y, X, addIntercept)
+    lm = ols(Y, X, options)
     SStot = lm.centeredSStot if addIntercept else lm.uncenteredSStot
     predictedR2, meanModelR2, sdModelR2 = (SStot - predictedSSres) / SStot, np.mean(r2), np.std(r2)
     return predictedR2, meanModelR2, (meanModelR2 - predictedR2) / sdModelR2
+

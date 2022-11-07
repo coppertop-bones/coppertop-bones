@@ -63,11 +63,12 @@ if '_oldImportFnForCoppertop' not in sys.__dict__:
         #     if name in ('coppertop._scopes', 'coppertop.pipe'):
         #         return sys._oldImportFnForCoppertop(name, globals, locals, fromlist, level)
         if splits[0] == 'broot':
-            if len(splits) > 1:
-                raise ImportError("broot is a virtual package with no importable submodules - usage is either 'import broot' or 'from broot.x.y import z'")
             if not fromlist:
-                # i.e. import broot
-                return sys._bmodules['']
+                if len(splits) > 1:
+                    raise ImportError("broot is a virtual package with no importable submodules - usage is either 'import broot' or 'from broot.x.y import z'")
+                else:
+                    # i.e. import broot
+                    return sys._bmodules['']
             bmodname = splits[1] if len(splits) == 2 else ''   # no splits means we're importing from the root namespace, i.e. from broot import a, b, c
             if (mod := sys._bmodules.get(bmodname, None)):
                 for nameToImport in fromlist:
