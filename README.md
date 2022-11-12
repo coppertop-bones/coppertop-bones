@@ -7,7 +7,7 @@ Coppertop provides a bones-style aggregation manipulation experience in Python v
 * piping syntax
 * data focussed type system with atoms, intersections, unions, products, exponentials, overloads and type schemas thus 
   allowing Python to be a library implementation language for bones
-* an embryonic [core library](https://github.com/DangerMouseB/coppertop-bones/tree/main/src/dm) of common functions 
+* an embryonic [core library](https://github.com/coppertop-bones/dm/tree/main/src/dm) of common functions 
 
 
 <br>

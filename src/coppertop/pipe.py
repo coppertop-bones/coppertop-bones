@@ -68,32 +68,8 @@ searchTime = 0 ;dispatchTime = 0; dispatchCount = 0; returnTime = 0; returnCount
 
 
 _unhandledTypes = set()
-_aliases = {}
+_aliases = {}                   # mappings from python types to bones types
 
-
-def _initAliases():
-    # easiest way to keep namespace relatively clean
-    from dm._core.types import txt, date, bool, litint, litdec, pytuple, pylist, pydict, pyset, pydict_keys, \
-        pydict_items, pydict_values, pyfunc
-    from bones.core.sentinels import dict_keys, dict_items, dict_values, function
-
-    _aliases.update({
-        builtins.int: litint,
-        builtins.str: txt,
-        datetime.date: date,
-        builtins.float: litdec,
-        builtins.bool: bool,
-        builtins.tuple: pytuple,
-        builtins.list: pylist,
-        builtins.dict: pydict,
-        builtins.set: pyset,
-        dict_keys: pydict_keys,
-        dict_items: pydict_items,
-        dict_values: pydict_values,
-        function: pyfunc,
-    })
-
-_initAliases()
 
 
 SelectionResult = namedtuple('SelectionResult', ['d', 'tByT'])
@@ -565,18 +541,6 @@ def _sig(x):
 sig = coppertop(name='sig', module='')(_sig)
 
 
-def _init():
-    # easiest way to keep namespace relatively clean
-    from bones.lang.metatypes import weaken
-
-    from dm.core.types import index, num, count, offset, null, litint, litdec, littxt, txt
-
-    # weaken - i.e. T1 coerces to any of (T2, T3, ...)  - first is default for a Holder
-    weaken(litint, (index, offset, num, count))
-    weaken(litdec, (num,))
-    weaken(type(None), (null, void))
-    weaken(littxt, (txt,))
-
 
 def _new(underscore:_ContextualScopeManager, name):
     # return a child scope that inherits from the current one without pushing it
@@ -637,8 +601,6 @@ def _names(x:_MutableContextualScope):
     return list([k for k in x._vars.keys()])
 names = coppertop(name='names', module='')(_names)
 
-
-_init()
 
 
 
