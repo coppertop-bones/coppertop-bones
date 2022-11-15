@@ -40,6 +40,9 @@ _numCopies = 0
 _numNotCopied = 0
 
 
+ANON_NAME = "<anon>"
+ROOT_NAME = "<root>"
+
 
 # **********************************************************************************************************************
 # _CoWScope - copy on write - https://stackoverflow.com/questions/628938/what-is-copy-on-write
@@ -217,7 +220,7 @@ class _CoWProxy(object):
 # the cost of the optimisation in Python
 
 class _CoWScope(object):
-    _slots__ = ['_vars']
+    _slots__ = ['_vars', '_name']
 
     def __init__(self):
         super().__setattr__('_vars', {})
@@ -250,11 +253,12 @@ class _CoWScope(object):
         # for pretty display in pycharm debugger
         return f"TBC{{{','.join(super().__getattribute__('_vars'))}}}"
 
+    def __dir__(self):
+        return list(super().__getattribute__('_vars').keys())
+
     def _setAttr(self, k, v):
         super().__getattribute__('_vars')[k] = v
 
-    def __dir__(self):
-        return list(super().__getattribute__('_vars').keys())
 
 
 class _ContextualScopeManager(object):
@@ -262,7 +266,7 @@ class _ContextualScopeManager(object):
 
     def __init__(self):
         super().__setattr__('_namedScopes', {})
-        super().__setattr__('_current', _MutableContextualScope(self, Missing, "<root>"))
+        super().__setattr__('_current', _MutableContextualScope(self, Missing, ROOT_NAME))
 
     def __setattr__(self, k, newValue):
         if k == '_current':
@@ -276,9 +280,19 @@ class _ContextualScopeManager(object):
         else:
             return getattr(super().__getattribute__('_current'), k)
 
+    def __delattr__(self, k):
+        if k in ('_current', '_namedScopes'):
+            raise AttributeError("Can't delete _current or _namedScopes")
+        else:
+            return delattr(super().__getattribute__('_current'), k)
+
     def __repr__(self):
         # for pretty display in pycharm debugger
         return f"TBC{{{','.join(self._current._vars)}}}"
+
+    def __dir__(self):
+        return dir(super().__getattribute__('_current'))
+
 
 
 class _MutableContextualScope(object):
@@ -305,8 +319,19 @@ class _MutableContextualScope(object):
         else:
             return answer
 
+    def __delattr__(self, k):
+        vars = super().__getattribute__('_vars')
+        if k in vars:
+            del vars[k]
+            return
+        raise AttributeError(k)
+
     def __repr__(self):
-        return f'ContextualScope({"<anon>" if self._name is Missing else self._name})'
+        return f'ContextualScope({ANON_NAME if self._name is Missing else self._name})'
+
+    def __dir__(self):
+        return list(super().__getattribute__('_vars').keys())
+
 
 
 if not hasattr(sys, '_UNDERSCORE'):

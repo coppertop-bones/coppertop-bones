@@ -119,6 +119,7 @@ str = type("hello")
 bool = type(True)
 classType = type(object)
 list_iter = type(iter([]))
+generator = type((x for x in []))
 
 
 if hasattr(sys, '_TRACE_IMPORTS') and sys._TRACE_IMPORTS: print(__name__ + ' - done')

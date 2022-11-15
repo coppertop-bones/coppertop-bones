@@ -59,7 +59,7 @@ import itertools, builtins
 from bones.core.utils import raiseLess
 from bones.core.errors import ErrSite
 from bones.core.errors import ProgrammerError, NotYetImplemented, PathNotTested
-from bones.core.sentinels import Missing, Void
+from bones.core.sentinels import Missing, Void, generator
 from bones.core.context import context
 from bones.lang.utils import Constructors
 
@@ -67,16 +67,23 @@ _verboseNames = False
 
 _idSeed = itertools.count(start=1)   # reserve id 0 as a terminator of a type set
 
-iterType = type((x for x in []))
-
 
 
 _BTypeByName = {}
 _BTAtomByName = {}
 _BTypeById = [Missing] * 1000
+_aliases = {}                   # mappings from python types to bones types
 
 
 from bones.jones import BType as BTypeRoot
+
+
+def getBTypeForClass(cls):
+    if (t := _aliases.get(cls, Missing)) is Missing:
+        name = cls.__module__ + "." + cls.__name__
+        t = BTAtom.ensure(name)
+        _aliases[cls] = t
+    return t
 
 
 
@@ -228,18 +235,24 @@ class BType(BTypeRoot):
 
     # unions - +
     def __add__(self, rhs):         # type + rhs
-        if not isinstance(rhs, (BType, type)):
+        if isinstance(rhs, type):
+            rhs = getBTypeForClass(rhs)
+        elif not isinstance(rhs, BType):
             raise TypeError(f'rhs should be a BType or type - got {repr(rhs)}')
         return BTUnion(self, rhs)
 
     def __radd__(self, lhs):        # lhs + type
-        if not isinstance(lhs, (BType, type)):
+        if isinstance(lhs, type):
+            lhs = getBTypeForClass(lhs)
+        elif not isinstance(lhs, BType):
             raise TypeError(f'lhs should be a BType or type - got {repr(lhs)}')
         return BTUnion(lhs, self)
 
     # products - tuples - *
     def __mul__(self, rhs):         # type * rhs
-        if not isinstance(rhs, (BType, type)):
+        if isinstance(rhs, type):
+            rhs = getBTypeForClass(rhs)
+        elif not isinstance(rhs, BType):
             raise TypeError(f'rhs should be a BType or type - got {repr(rhs)}')
         types = \
             (self.types if isinstance(self, BTTuple) else (self,)) + \
@@ -247,7 +260,9 @@ class BType(BTypeRoot):
         return BTTuple(*types)
 
     def __rmul__(self, lhs):        # lhs * type
-        if not isinstance(lhs, (BType, type)):
+        if isinstance(lhs, type):
+            lhs = getBTypeForClass(lhs)
+        elif not isinstance(lhs, BType):
             raise TypeError(f'lhs should be a BType or type - got {repr(lhs)}')
         types = \
             (lhs.types if isinstance(lhs, BTTuple) else (lhs,)) + \
@@ -256,7 +271,9 @@ class BType(BTypeRoot):
 
     # finite size exponentials - lists and maps - **
     def __pow__(self, rhs):         # type ** rhs
-        if not isinstance(rhs, (BType, type)):
+        if isinstance(rhs, type):
+            rhs = getBTypeForClass(rhs)
+        elif not isinstance(rhs, BType):
             raise TypeError(f'rhs should be a BType or type - got {repr(rhs)}')
         if self in BType._arrayOrdinalTypes:
             return BTSeq(self, rhs)
@@ -264,7 +281,9 @@ class BType(BTypeRoot):
             return BTMap(self, rhs)
 
     def __rpow__(self, lhs):        # lhs ** type
-        if not isinstance(lhs, (BType, type)):
+        if isinstance(lhs, type):
+            lhs = getBTypeForClass(lhs)
+        elif not isinstance(lhs, BType):
             raise TypeError(f'lhs should be a BType or type - got {repr(lhs)} - has a type been overridden?')
         if lhs in BType._arrayOrdinalTypes:
             return BTSeq(lhs, self)
@@ -273,18 +292,23 @@ class BType(BTypeRoot):
 
     # general exponentials - functions - ^
     def __xor__(self, rhs):         # type ^ rhs
-        if not isinstance(rhs, (BType, type)):
+        if isinstance(rhs, type):
+            rhs = getBTypeForClass(rhs)
+        elif not isinstance(rhs, BType):
             raise TypeError(f'rhs should be a BType or type - got {repr(rhs)}')
         return BTFn(self if isinstance(self, BTTuple) else BTTuple(self), rhs)
 
     def __rxor__(self, lhs):        # lhs ^ type
         if isinstance(lhs, BTTuple):
             tArgs = lhs
-        elif isinstance(lhs, (BType, type)):
+        elif isinstance(lhs, type):
+            lhs = getBTypeForClass(lhs)
+            tArgs = (lhs,)
+        elif isinstance(lhs, BType):
             tArgs = (lhs,)
         elif isinstance(lhs, (list, tuple)):
             tArgs = lhs
-        elif isinstance(lhs, iterType):
+        elif isinstance(lhs, generator):
             tArgs = tuple(lhs)
         else:
             raise TypeError(f'lhs should be a BType, type, list or tuple - got {repr(lhs)}')
@@ -292,7 +316,9 @@ class BType(BTypeRoot):
 
     # intersections - &
     def __and__(self, rhs):         # type & rhs
-        if not isinstance(rhs, (BType, type)):
+        if isinstance(rhs, type):
+            rhs = getBTypeForClass(rhs)
+        elif not isinstance(rhs, BType):
             raise TypeError(f'rhs should be a BType or type - got {repr(rhs)}')
         if self.__class__ is BTFn:
             return BTOverload(self, rhs)
@@ -300,7 +326,9 @@ class BType(BTypeRoot):
             return BTIntersection(self, rhs)
 
     def __rand__(self, lhs):        # lhs & type
-        if not isinstance(lhs, (BType, type)):
+        if isinstance(lhs, type):
+            lhs = getBTypeForClass(lhs)
+        elif not isinstance(lhs, BType):
             raise TypeError(f'lhs should be a BType or type - got {repr(lhs)}')
         if self.__class__ is BTFn:
             return BTOverload(lhs, self)
@@ -574,7 +602,11 @@ def _sortedUnionTypes(types):
         if isinstance(t, BTUnion):            # BTUnion is a subclass of BType so this must come before BType
             collated.extend(t.types)
             [_updateFlagsForUnion(e, flags) for e in t.types]
-        elif isinstance(t, (BType, type)):
+        elif isinstance(t, type):
+            t = getBTypeForClass(t)
+            collated.append(t)
+            _updateFlagsForUnion(t, flags)
+        elif isinstance(t, BType):
             collated.append(t)
             _updateFlagsForUnion(t, flags)
         else:
@@ -582,7 +614,11 @@ def _sortedUnionTypes(types):
                 if isinstance(e, BTUnion):    # BTUnion is a subclass of BType so this must come before BType
                     collated.extend(e.types)
                     [_updateFlagsForUnion(e, flags) for r in t.types]
-                elif isinstance(e, (BType, type)):
+                elif isinstance(e, type):
+                    e = getBTypeForClass(e)
+                    collated.append(e)
+                    _updateFlagsForUnion(t, flags)
+                elif isinstance(e, BType):
                     collated.append(e)
                     _updateFlagsForUnion(t, flags)
                 else:
@@ -610,7 +646,11 @@ def _sortedIntersectionTypes(types, singleSV):
         if isinstance(t, BTIntersection):            # BTIntersection is a subclass of BType so this must come first
             collated.extend(t.types)
             [_updateFlagsForIntersection(e, flags, singleSV) for e in t.types]
-        elif isinstance(t, (BType, type)):
+        elif isinstance(t, type):
+            t = getBTypeForClass(t)
+            collated.append(t)
+            _updateFlagsForIntersection(t, flags, singleSV)
+        elif isinstance(t, BType):
             collated.append(t)
             _updateFlagsForIntersection(t, flags, singleSV)
         else:
@@ -618,7 +658,11 @@ def _sortedIntersectionTypes(types, singleSV):
                 if isinstance(e, BTIntersection):    # BTIntersection is a subclass of BType so this must come first
                     collated.extend(e.types)
                     [_updateFlagsForIntersection(e, flags, singleSV) for r in t.types]
-                elif isinstance(e, (BType, type)):
+                elif isinstance(e, type):
+                    e = getBTypeForClass(e)
+                    collated.append(e)
+                    _updateFlagsForIntersection(t, flags, singleSV)
+                elif isinstance(e, BType):
                     collated.append(e)
                     _updateFlagsForIntersection(t, flags, singleSV)
                 else:

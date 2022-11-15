@@ -32,7 +32,7 @@ import sys
 if hasattr(sys, '_TRACE_IMPORTS') and sys._TRACE_IMPORTS: print(__name__)
 
 __all__ = [
-    'coppertop', 'nullary', 'unary', 'binary', 'ternary', '_', 'sig', 'context', 'typeOf', 'partial'
+    'coppertop', 'nullary', 'unary', 'binary', 'ternary', '_', 'sig', 'context', 'typeOf', 'makeFn'
 ]
 
 
@@ -45,11 +45,11 @@ from bones import jones
 
 from bones.core.context import context
 from coppertop import BModule
-from coppertop._scopes import _CoWProxy, _UNDERSCORE, _ContextualScopeManager, _MutableContextualScope
-from bones.core.errors import ProgrammerError, NotYetImplemented, ErrSite, CPTBError
+from coppertop._scopes import _CoWProxy, _UNDERSCORE
+from bones.core.errors import ProgrammerError, ErrSite, CPTBError
 from bones.core.sentinels import Missing
 from bones.core.utils import firstKey
-from bones.lang.metatypes import BType, fitsWithin, cacheAndUpdate, BTFn, BTTuple, BTAtom, BTOverload, _BTypeById
+from bones.lang.metatypes import BType, fitsWithin, cacheAndUpdate, BTFn, BTTuple, BTAtom, BTOverload, _BTypeById, _aliases
 from bones.lang.types import nullary, unary, binary, ternary, void, obj
 from bones.core.utils import raiseLess
 from bones.lang.select import _ppType, _selectFunction
@@ -68,7 +68,6 @@ searchTime = 0 ;dispatchTime = 0; dispatchCount = 0; returnTime = 0; returnCount
 
 
 _unhandledTypes = set()
-_aliases = {}                   # mappings from python types to bones types
 
 
 
@@ -94,7 +93,7 @@ jonesFnByStyle = {
 
 
 
-def partial(*args):
+def makeFn(*args):
     if len(args) == 1:
         name, _t, pyfn = ANON_NAME, Missing, args[0]
     elif len(args) == 2:
@@ -316,6 +315,10 @@ class _Function(object):
     def sig(self):
         return self._sig
 
+    @property
+    def tRet(self):
+        return self._tRet
+
     def _tPartial(self, o_tbc):
         sig = self._tArgs.types
         return BTFn(BTTuple(*(sig[o] for o in o_tbc)), self._tRet)
@@ -385,10 +388,7 @@ class _Dispatcher(object):
         instance.__doc__ = None
         return instance
 
-
-    def __call__(self, *args):
-        # global hits, misses, hitTime1, hitTime2, missTime1, missTime2, searchTime, dispatchTime, dispatchCount, returnTime, returnCount
-        # t1 = time.perf_counter_ns()
+    def selectFn(self, args):
         numArgs = len(args)
         if numArgs == 0:
             fn = self.fnBySigByNumArgs[0][()]
@@ -422,6 +422,13 @@ class _Dispatcher(object):
             else:
                 # hitTime1 += t2 - t1; hitTime2 += t3 - t2; hits += 1; dispatchTime += t3 - t1
                 fn, tByT = results[resultId - 1]
+        return fn, tByT, hasValue
+
+    def __call__(self, *args):
+        # global hits, misses, hitTime1, hitTime2, missTime1, missTime2, searchTime, dispatchTime, dispatchCount, returnTime, returnCount
+        # t1 = time.perf_counter_ns()
+
+        fn, tByT, hasValue = self.selectFn(args)
 
         # t4 = time.perf_counter_ns()
 
@@ -500,7 +507,6 @@ class _Dispatcher(object):
         return self.name
 
 
-
 def _typeOf(x):
     if hasattr(x, '_t'):
         return x._t                     # it's a tv of some sort so return the t
@@ -539,67 +545,6 @@ def _sig(x):
         return f'({",".join(argTs)})->{retT} <{x.style.name}>  :   in {x.fullname}'
 
 sig = coppertop(name='sig', module='')(_sig)
-
-
-
-def _new(underscore:_ContextualScopeManager, name):
-    # return a child scope that inherits from the current one without pushing it
-    if (current := underscore._namedScopes.get(name, Missing)) is Missing:    # numpy overides pythons truth function in an odd way
-        return _MutableContextualScope(underscore._current._manager, underscore._current, name)
-    else:
-        return current
-new = coppertop(style=binary, name='new', module='')(_new)
-
-def _newCow(underscore:_ContextualScopeManager):
-    # return a child cow scope that inherits from the current one without pushing it
-    raise NotYetImplemented()
-newCow = coppertop(name='newCow', module='')(_newCow)
-
-def _push(underscore:_ContextualScopeManager):
-    child = _MutableContextualScope(underscore, underscore._current)
-    underscore._current = child
-    return child
-push = coppertop(name='push', module='')(_push)
-
-def _pushCow(underscore:_ContextualScopeManager):
-    raise NotYetImplemented()
-pushCow = coppertop(name='pushCow', module='')(_pushCow)
-
-def _pop(underscore:_ContextualScopeManager):
-    underscore._current = underscore._current._parent
-    return underscore._current
-pop = coppertop(name='pop', module='')(_pop)
-
-def _switch(underscore:_ContextualScopeManager, contextualScopeOrName):
-    if isinstance(contextualScopeOrName, _MutableContextualScope):
-        underscore._current = contextualScopeOrName
-        return contextualScopeOrName
-    else:
-        underscore._current = underscore._namedScopes[contextualScopeOrName]
-        return underscore._current
-switch = coppertop(style=binary, name='switch', module='')(_switch)
-
-def _current(underscore:_ContextualScopeManager):
-    return underscore._current
-current = coppertop(name='current', module='')(_current)
-
-def _getRoot(underscore:_ContextualScopeManager):
-    root = underscore._parent
-    while root is not (root := root._parent): pass
-    return root
-getRoot = coppertop(name='getRoot', module='')(_getRoot)
-
-def _name(underscore:_ContextualScopeManager):
-    current = underscore._current
-    for k, v in underscore._namedScopes.items():
-        if v is current:
-            return k
-    return "<anon>"
-name = coppertop(name='name', module='')(_name)
-
-def _names(x:_MutableContextualScope):
-    return list([k for k in x._vars.keys()])
-names = coppertop(name='names', module='')(_names)
 
 
 
