@@ -1,20 +1,18 @@
 ## coppertop-bones - partial functions, multiple-dispatch and pipeline style for Python
 
-Coppertop provides a bones-style aggregation manipulation experience in Python via the following:
+Coppertop provides an alternative programming experience in Python via the following:
 
 * partial (application of) functions
 * multiple-dispatch
 * piping syntax
-* data focussed type system with atoms, intersections, unions, products, exponentials, overloads and type schemas thus 
-  allowing Python to be a library implementation language for bones
-* an embryonic [core library](https://github.com/coppertop-bones/dm/tree/main/src/dm) of common functions 
+* an embryonic [core library](https://github.com/coppertop-bones/dm/tree/main/src/dm) of common functions
 
 
 <br>
 
 ### Partial (application of) functions
 
-By decorating a function with @coppertop (and importing _) we can easily create partial functions, for example:
+By decorating a function with @coppertop (and importing _) we can create partial functions, for example:
 
 syntax: `f(_, a)` -> `f(_)`  \
 where `_` is used as a sentinel place-holder for arguments yet to be confirmed (TBC)
@@ -37,7 +35,7 @@ assert appendWorld("hello") == "hello world!"
 
 ### Multiple-dispatch
 
-Just redefine functions with different type annotations. Missing annotations are taken as 
+To use the multi-dispatch redefine functions but with different type annotations. Missing annotations are taken as 
 fallback wildcards. Class inheritance is ignored when matching caller and function signatures.
 
 ```
@@ -68,7 +66,7 @@ assert addOne([0]) == [0, 1]
 
 The @coppertop function decorator also extends functions with the `>>` operator
 and so allows code to be written in a more essay style format - i.e. left-to-right and 
-top-to-bottom. The idea is to make it easy to express the syntax (aka sequence) of a solution.
+top-to-bottom. The idea is to make it easier to express the syntax (aka sequence) of a solution.
 
 
 <br>
@@ -99,7 +97,7 @@ syntax: `A >> f(args) >> B` -> `f(args)(A, B)`
 ```
 from bones.core.errors import NotYetImplemented
 import dm.core
-from broot import collect, inject
+from groot import collect, inject
 
 @coppertop(style=binary)
 def add(x, y):
@@ -125,7 +123,7 @@ def op(x, action, y):
 syntax: `A >> f(args) >> B >> C` -> `f(args)(A, B, C)`
 
 ```
-from broot import both, check, equal
+from groot import both, check, equal
 
 actual = [1,2] >> both >> (lambda x, y: x + y) >> [3,4]
 assert (1 >> equal >> 1) == True
@@ -134,9 +132,20 @@ actual >> check >> equal >> [4, 6]
 
 <br> 
 
-#### as an exercise for the reader
+### Example - Cluedo notepad
+
+See [algos.py](https://github.com/DangerMouseB/coppertop-bones-demo/blob/main/src/dm/examples/cluedo/algos.py), where 
+we track a game of Cluedo and infer who did it. See [games.py](https://github.com/DangerMouseB/coppertop-bones-demo/blob/main/src/dm/examples/cluedo/games.py) 
+for example game input.
+
+<br>
+
+#### a whimsical exercise for the ambitious
+
+(both, collect, inject, addOne, appendStr, check, equal are all illustrated above)
+
 ```
-from broot import to
+from groot import to
 [1,2] >> both >> (lambda x, y: x + y) >> [3,4] 
    >> collect >> (lambda x: x * 2)
    >> inject(_,1,_) >> (lambda x,y: x * y)
@@ -147,31 +156,114 @@ from broot import to
 
 <br>
 
+### Appendix - comparison of unary piping with other languages
 
-### Bones type system
-
-As an introduction, consider:
+Python (using the @coppertop decorator)
 
 ```
-from bones.lang.metatypes import BTAtom, S
-from dm.core.types import num, index, txt, N
-num = BTAtom.ensure('num')      # nominal
-_ccy = BTAtom.ensure('_ccy')    # nominal
-ccy = num & _ccy                # intersection
-ccy + null                      # union
-ccy * index * txt               # tuple (sequence of types)
-S(name=txt, age=num)            # struct
-N ** ccy                        # collection of ccy accessed by an ordinal (N)
-txt ** ccy                      # collection of ccy accessed by a python string
-(num*num) ^ num                 # (num, num) -> num - a function
-T, T1, T2, ...                  # type variable - to be inferred at build time
+@coppertop     # default is unary
+def unaryAddOne(x):
+  return x + 1
+
+@coppertop
+def unaryAdd2Args(x, y):
+  return x + y
+
+@coppertop
+def unaryAdd3Args(x, y, z):
+  return x + y + z
+
+unaryAddOne(1)
+1 >> unaryAddOne
+
+unaryAdd2Args(1,2)
+1 >> unaryAdd2Args(_,2)
+2 >> unaryAdd2Args(1,_)
+
+unaryAdd3Args(1,2,3)
+1 >> unaryAdd3Args(_,2,3)
+2 >> unaryAdd3Args(1,_,3)
+3 >> unaryAdd3Args(1,2,_)
+```
+
+R - TBD
+
+```
+# with magrittr
+```
+
+q / kdb (an APL derivative)
+
+```
+unaryAddOne: {x + 1}
+unaryAdd2args: {x + y}
+unaryAdd3Args: {x + y + z}
+
+unaryAddOne[1]
+unaryAddOne 1
+
+unaryAdd2Args[1;2]
+unaryAdd2Args[;2] 1
+unaryAdd2Args[1;] 2
+
+unaryAdd3Args[1;2;3]
+unaryAdd3Args[;2;3] 1
+unaryAdd3Args[1;;3] 2
+unaryAdd3Args[1;2;] 3
 ```
 
 <br>
 
+F# / OCaml
 
-### Example - Cluedo notepad
+```
+unaryAddOne x = x + 1
+unaryAdd2Args x y = x + y
+unaryAdd3Args x y z = x + y + z
 
-See [algos.py](https://github.com/DangerMouseB/coppertop-bones-demo/blob/main/src/dm/examples/cluedo/algos.py), where 
-we track a game of Cluedo and infer who did it. See [games.py](https://github.com/DangerMouseB/coppertop-bones-demo/blob/main/src/dm/examples/cluedo/games.py) 
-for example game input.
+unaryAddOne 1
+1 |> unaryAddOne
+
+unaryAdd2Args 1 2
+2 |> unaryAdd2Args 1
+
+unaryAdd3Args 1 2 3
+3 |> unaryAdd3Args 1 2
+```
+
+Smalltalk
+
+```
+unaryAddOne
+    ^ self + 1
+
+unaryAdd2Args: y
+    ^ self + y
+
+unaryAdd3Args: y with: z
+    ^ self + y + z
+
+1 addOne
+1 unaryAdd2Args: 2
+1 unaryAdd3Args: 2 with: 3
+```
+
+bones (influenced by q/kdb and Smalltalk)
+
+```
+unaryAddOne: {x + 1}
+unaryAdd2Args: {x + y}
+unaryAdd3Args: {x + y + z}
+
+unaryAddOne(1)
+1 unaryAddOne
+
+unaryAdd2Args(1,2)
+1 unaryAdd2Args(,2)
+2 unaryAdd2Args(1,)
+
+unaryAdd3Args(1,2,3)
+1 unaryAdd2Args(,2,3)
+2 unaryAdd2Args(1,,3)
+3 unaryAdd2Args(1,2,)
+```
