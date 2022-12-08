@@ -118,6 +118,7 @@ def op(x, action, y):
 
 <br>
 
+
 #### ternary style - takes 3 piped arguments and 0+ called arguments
 
 syntax: `A >> f(args) >> B >> C` -> `f(args)(A, B, C)`
@@ -132,6 +133,7 @@ actual >> check >> equal >> [4, 6]
 
 <br> 
 
+
 ### Example - Cluedo notepad
 
 See [algos.py](https://github.com/DangerMouseB/coppertop-bones-demo/blob/main/src/dm/examples/cluedo/algos.py), where 
@@ -140,7 +142,8 @@ for example game input.
 
 <br>
 
-#### a whimsical exercise for the ambitious
+
+### a whimsical exercise for the ambitious
 
 (both, collect, inject, addOne, appendStr, check, equal are all illustrated above)
 
@@ -155,6 +158,7 @@ from groot import to
 ```
 
 <br>
+
 
 ### Appendix - comparison of unary piping with other languages
 

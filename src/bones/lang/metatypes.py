@@ -67,7 +67,7 @@ _verboseNames = False
 
 _idSeed = itertools.count(start=1)   # reserve id 0 as a terminator of a type set
 
-
+REPL_OVERRIDE_MODE = False
 
 _BTypeByName = {}
 _BTAtomByName = {}
@@ -209,7 +209,7 @@ class BType(BTypeRoot):
         if self._constructor is Missing:
             self._constructor = fnTV
         else:
-            if self._constructor is not fnTV:
+            if self._constructor is not fnTV and not REPL_OVERRIDE_MODE:
                 # ditto - see setCoercer
                 raise ProgrammerError('constructor already set')
         return self
