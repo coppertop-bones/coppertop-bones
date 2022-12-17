@@ -63,14 +63,15 @@ def raiseLess(ex, includeMe=True):
         if fullname == '__main__.<module>': break
     hasPydev = False
     hasIPython = False
-    while True:
-        # frame = sys._getframe(depth)
-        frame = frame.f_back
-        if not frame: break
-        fullname = frame.f_globals['__name__'] + '.' + frame.f_code.co_name
-        # print(fullname)
-        if fullname.startswith("pydevd"): hasPydev = True
-        if fullname.startswith("IPython"): hasIPython = True
+    if frame:
+        while True:
+            # frame = sys._getframe(depth)
+            frame = frame.f_back
+            if not frame: break
+            fullname = frame.f_globals['__name__'] + '.' + frame.f_code.co_name
+            # print(fullname)
+            if fullname.startswith("pydevd"): hasPydev = True
+            if fullname.startswith("IPython"): hasIPython = True
     if hasPydev or hasIPython:
         raise ex.with_traceback(tb) from None
     else:
